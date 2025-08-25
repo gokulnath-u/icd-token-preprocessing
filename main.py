@@ -1,26 +1,31 @@
 import logging
-import os
 from utils.config import Config
 from pipelines.pipeline import Preprocessor
 
-# Logging setup
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - token_cleansing - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger("Token Cleansing")
-
 
 def main():
     cfg = Config()
+    preprocessor = Preprocessor(cfg)
 
-    # Ensure output directory exists
-    os.makedirs(os.path.dirname(cfg.output_file), exist_ok=True)
+    # Load input
+    with open(cfg.input_file, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+
+    logger = logging.getLogger("token_cleansing")
+    logger.info("Starting token cleansing pipeline...")
 
     # Run pipeline
-    preprocessor = Preprocessor(cfg)
-    preprocessor.process_file()
+    cleaned_text = preprocessor.run(raw_text)
 
+    # Save cleaned output
+    with open(cfg.output_file, "w", encoding="utf-8") as f:
+        f.write(cleaned_text)
+
+    logger.info(f"Pipeline finished. Output written to {cfg.output_file}")
 
 if __name__ == "__main__":
     main()

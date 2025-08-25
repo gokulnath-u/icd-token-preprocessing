@@ -1,59 +1,47 @@
 import logging
 import time
-from utils.tokenutils import TokenUtils
+from transformers import AutoTokenizer
 
-logger = logging.getLogger("Token Cleansing")
-
+logger = logging.getLogger("token_cleansing")
 
 class TokenCleansing:
-    def __init__(self, token_utils: TokenUtils):
-        self.token_utils = token_utils
+    def __init__(self, model_name: str, max_tokens: int):
+        start = time.perf_counter()
+        logger.info(f"Loading tokenizer for: {model_name}")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.max_tokens = max_tokens
+
+        end = time.perf_counter()
+        logger.info(
+            f"Tokenizer loaded. Max tokens set to {self.max_tokens}. "
+            f"Load time: {end - start:.2f} sec"
+        )
 
     def cleanse(self, text: str):
-        """
-        Cleanses text by keeping as many paragraphs as possible within
-        the tokenizer's max length. Remaining paragraphs are moved to
-        'removed' output.
-        Also logs token counts and time taken.
-        """
+        start_time = time.perf_counter()
 
-        start_time = time.perf_counter()  # start timer for cleansing
+        tokens = self.tokenizer.tokenize(text)
+        total_tokens = len(tokens)
+        removed_tokens = []
 
-        # Tokenize full input once to get total tokens
-        all_tokens = self.token_utils.encode(text)
-        total_tokens = len(all_tokens)
+        if total_tokens > self.max_tokens:
+            removed_tokens = tokens[self.max_tokens:]
+            tokens = tokens[: self.max_tokens]
 
-        # Split into paragraphs
-        paragraphs = text.split("\n\n")
-        kept_sections = []
-        removed_sections = []
+        cleaned = self.tokenizer.convert_tokens_to_string(tokens)
+        removed = self.tokenizer.convert_tokens_to_string(removed_tokens)
 
-        token_count = 0
-        limit = self.token_utils.max_length
+        kept_count = len(tokens)
+        removed_count = len(removed_tokens)
 
-        for paragraph in paragraphs:
-            if not paragraph.strip():
-                continue  # skip empty lines/paragraphs
-
-            tokens = self.token_utils.encode(paragraph)
-            paragraph_len = len(tokens)
-
-            if token_count + paragraph_len <= limit:
-                kept_sections.append(paragraph)
-                token_count += paragraph_len
-            else:
-                removed_sections.append(paragraph)
-
-        cleaned_text = "\n\n".join(kept_sections)
-        removed_text = "\n\n".join(removed_sections)
-
-        removed_count = total_tokens - token_count
-
-        end_time = time.perf_counter()  # end timer
+        end_time = time.perf_counter()
         duration = end_time - start_time
 
-        logger.info(f"Token cleansing completed ")
-        logger.info(f"Total tokens: {total_tokens}, Kept: {token_count}, Removed: {removed_count}")
-        logger.info(f"Time taken for cleansing: {duration:.2f} seconds")
+        logger.info(
+            f"Token cleansing completed → Total: {total_tokens}, "
+            f"Kept: {kept_count}, Removed: {removed_count}, "
+            f"Time taken: {duration:.2f} sec"
+        )
 
-        return cleaned_text, removed_text
+        return cleaned, removed

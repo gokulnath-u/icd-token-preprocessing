@@ -1,47 +1,29 @@
-import logging
 import os
-import time
+import logging
 from helpers.token_cleansing import TokenCleansing
 from helpers.normalization import Normalizer
-from utils.tokenutils import TokenUtils
 
-logger = logging.getLogger("Token Cleansing")
-
+logger = logging.getLogger("token_cleansing")
 
 class Preprocessor:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.token_utils = TokenUtils(cfg.model_name)
+        self.token_cleanser = TokenCleansing(cfg.model_name, cfg.max_tokens)
         self.normalizer = Normalizer()
-        self.token_cleansing = TokenCleansing(self.token_utils)
 
-    def process_file(self):
-        start_time = time.perf_counter()  # start timer
+    def run(self, text: str) -> str:
+        # Step 1: Token cleansing
+        cleaned, removed = self.token_cleanser.cleanse(text)
 
-        logger.info(f"Loading input: {self.cfg.input_file}")
-        with open(self.cfg.input_file, "r", encoding="utf-8") as f:
-            raw_text = f.read()
+        # Step 2: Wordninja normalization (keep this exactly as is ✅)
+        normalized = self.normalizer.normalize(cleaned)
 
-        # Normalize text
-        normalized_text = self.normalizer.normalize(raw_text)
-
-        # Cleanse tokens
-        cleaned, removed = self.token_cleansing.cleanse(normalized_text)
-
-        # Save cleaned Markdown
-        output_path = self.cfg.output_file
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(cleaned)
-        logger.info(f"Cleaned Markdown saved to: {output_path}")
-
-        # Save removed tokens
-        removed_path = os.path.join(os.path.dirname(output_path), "output_removed_tokens.md")
+        # Step 3: Save removed tokens
+        removed_path = self.cfg.output_file.replace(".md", "_removed_tokens.md")
+        os.makedirs(os.path.dirname(removed_path) or ".", exist_ok=True)
         with open(removed_path, "w", encoding="utf-8") as f:
             f.write(removed if removed else "")
-        logger.info(f"Removed tokens saved to: {removed_path}")
 
-        end_time = time.perf_counter()  # end timer
-        duration = end_time - start_time
+        logger.info(f"Removed tokens saved to {removed_path}")
 
-        logger.info(f"Pipeline finished successfully ✅ Time taken: {duration:.2f} seconds")
+        return normalized
