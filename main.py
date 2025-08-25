@@ -1,5 +1,5 @@
 import logging
-from utils.config import Config
+from config.config import Config
 from pipelines.pipeline import Preprocessor
 
 logging.basicConfig(
